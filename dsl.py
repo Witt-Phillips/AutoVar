@@ -47,19 +47,25 @@ class Dist(IntractableReal):
 # where f is a (probabilistic, otherwise not interesting) program that returns a float
 # could optionally take a list of samples to avoid running the program more than necessary
 class Sampler(IntractableReal):
-    def __init__(self, f: Callable[[], float], known_variance: float = None):
-       self.f = f
+    def __init__(self, f: Callable[[], float], known_mean: float = None, known_variance: float = None):
+       self.f = f if ((known_mean is None) or (known_variance is None)) else None # only track lambda if we need to
+       self.known_mean = known_mean
        self.known_variance = known_variance
     
     def estimate(self):
-        return self.f()
+        if self.known_mean is not None:
+            return self.known_mean
+        else:
+            return self.f()
     
     def variance(self):
         if self.known_variance is not None:
             return Exact(self.known_variance)
         else:
-            diff = Sub(Sampler(self.f), Sampler(self.f))
-            return Mul(Exact(0.5), Square(diff))
+            # important: we don't know the variance of this difference, so we treat it as 0?
+            # diff = Exact(self.f() - self.f()) 
+            # no! We should just define a 'variance sampler' and use its estimate.
+            return Sampler(lambda: 0.5 * (self.f() - self.f())**2)
     
     def __str__(self) -> str:
         return f"Sampler({self.f})"
