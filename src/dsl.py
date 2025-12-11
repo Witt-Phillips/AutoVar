@@ -1,5 +1,8 @@
 from typing_extensions import Self
 from typing import Callable
+from math import exp, log
+
+""" IntractableReal Base Types """
 
 class IntractableReal:
     def estimate(self) -> float:
@@ -24,22 +27,21 @@ class Exact(IntractableReal):
         return f"Exact({self.val})"
 
 class Dist(IntractableReal):
-    def __init__(self, dist: IntractableReal, n: float):
-        self.n = n  # continuous 'allocation density'
-        self.n_int = max(1, int(round(self.n)))
+    def __init__(self, dist: IntractableReal, n: int):
+        self.n = n
         self.dist = dist
     
     def estimate(self):
         total = 0
-        for _ in range(self.n_int):
+        for _ in range(self.n):
             total += self.dist.estimate()
-        return total / self.n_int
+        return total / self.n
     
     def variance(self):
         total = 0
-        for _ in range(self.n_int):
+        for _ in range(self.n):
             total += self.dist.variance().estimate()
-        return Exact(total / self.n_int)
+        return Exact(total / self.n)
     
     def __str__(self) -> str:
         return f"Dist({self.dist}, {self.n})"
@@ -48,7 +50,7 @@ class Dist(IntractableReal):
 # could optionally take a list of samples to avoid running the program more than necessary
 class Sampler(IntractableReal):
     def __init__(self, f: Callable[[], float], known_mean: float = None, known_variance: float = None):
-       self.f = f if ((known_mean is None) or (known_variance is None)) else None # only track lambda if we need to
+       self.f = f #if ((known_mean is None) or (known_variance is None)) else None # only track lambda if we need to
        self.known_mean = known_mean
        self.known_variance = known_variance
     
@@ -65,14 +67,20 @@ class Sampler(IntractableReal):
             # important: we don't know the variance of this difference, so we treat it as 0?
             # diff = Exact(self.f() - self.f()) 
             # no! We should just define a 'variance sampler' and use its estimate.
-            return Sampler(lambda: 0.5 * (self.f() - self.f())**2)
+
+            if self.known_mean is not None:
+                # single sample comparison to known mean
+                return Sampler(lambda: (self.f() - self.known_mean)**2)
+            else:
+                # two sample comparison given no known mean
+                return Sampler(lambda: 0.5 * (self.f() - self.f())**2)
     
     def __str__(self) -> str:
         return f"Sampler({self.f})"
         
     
+""" BinOps """
 
-# BinOps
 class Add(IntractableReal):
     def __init__(self, x: IntractableReal, y: IntractableReal):
         self.x = x
@@ -176,3 +184,33 @@ class Square(IntractableReal):
     
     def __str__(self) -> str:
         return f"{self._impl}"
+
+#e^x, estiamted using the delta method
+class Exp(IntractableReal):
+    def __init__(self, x: IntractableReal):
+        self.x = x
+    
+    def estimate(self):
+        return exp(self.x.estimate())
+    
+    #Var(e^X) ≈ e^(2μ) · Var(X)
+    # Wanted to do the delta method, but it was giving me a different answer than the sampler.
+    # The problem is that this loses all context. We don't benefit from the fact that we know the variance of the original distribution.
+    def variance(self):
+        return Sampler(lambda: 0.5 * (exp(self.x.estimate()) - exp(self.x.estimate()))**2)
+    
+    def __str__(self) -> str:
+        return f"Exp({self.x})"
+
+class Log(IntractableReal):
+    def __init__(self, x: IntractableReal):
+        self.x = x
+    
+    def estimate(self):
+        return log(self.x.estimate())
+    
+    def variance(self):
+        return Sampler(lambda: 0.5 * (log(self.x.estimate()) - log(self.x.estimate()))**2)
+    
+    def __str__(self) -> str:
+        return f"Log({self.x})"
