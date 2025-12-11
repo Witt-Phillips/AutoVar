@@ -1,1 +1,2 @@
 Talk about the necessity of negative variance - what it means to define a distribution on variance
+Make the Sampler() intelligent about using samples 

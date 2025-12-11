@@ -1,6 +1,5 @@
 from typing_extensions import Self
 from typing import Callable
-from typing import List, Tuple
 
 class IntractableReal:
     def estimate(self) -> float:
@@ -24,28 +23,26 @@ class Exact(IntractableReal):
     def __str__(self) -> str:
         return f"Exact({self.val})"
 
-# make the list handling smarter here (get rid of values once accessed?)
 class Dist(IntractableReal):
     def __init__(self, dist: IntractableReal, n: float):
         self.n = n  # continuous 'allocation density'
         self.n_int = max(1, int(round(self.n)))
         self.dist = dist
-        self.runs: List[Tuple[float, float]] = []
     
     def estimate(self):
+        total = 0
         for _ in range(self.n_int):
-            estimate = self.dist.estimate()
-            variance = self.dist.variance().estimate()
-            self.runs.append((estimate, variance))
-        
-        return sum(est for est, _ in self.runs) / len(self.runs)
+            total += self.dist.estimate()
+        return total / self.n_int
     
     def variance(self):
-        return Exact(sum(var for _, var in self.runs) / len(self.runs))
+        total = 0
+        for _ in range(self.n_int):
+            total += self.dist.variance().estimate()
+        return Exact(total / self.n_int)
     
-
     def __str__(self) -> str:
-        return f"Dist({self.n}, {self.dist})"
+        return f"Dist({self.dist}, {self.n})"
 
 # where f is a (probabilistic, otherwise not interesting) program that returns a float
 # could optionally take a list of samples to avoid running the program more than necessary
