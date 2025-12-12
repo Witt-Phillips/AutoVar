@@ -1,6 +1,9 @@
+import time
 from typing_extensions import Self
 from typing import Callable
 from math import exp, log
+
+_active_profile = None
 
 """ IntractableReal Base Types """
 
@@ -46,19 +49,90 @@ class Dist(IntractableReal):
     def __str__(self) -> str:
         return f"Dist({self.dist}, {self.n})"
 
+""" Profiler """
+# TODO: review
+class ProfileData:
+    """Holds profiling data for a single Profile context."""
+    def __init__(self):
+        self.data = {}  # (lambda_id, sampler_uid) -> [n, total_time]
+    
+    def record(self, lambda_id: int, sampler_uid: int, elapsed: float):
+        key = (lambda_id, sampler_uid)
+        if key in self.data:
+            self.data[key][0] += 1
+            self.data[key][1] += elapsed
+        else:
+            self.data[key] = [1, elapsed]
+    
+    def summary(self) -> dict:
+        """Returns {(lambda_id, sampler_uid): (n, avg_time)}"""
+        return {k: (v[0], v[1] / v[0] if v[0] > 0 else 0) 
+                for k, v in self.data.items()}
+
+
+# TODO: review
+class Profile(IntractableReal):
+    """Wraps an IntractableReal and profiles all sampling during estimate()."""
+    def __init__(self, x: IntractableReal):
+        self.x = x
+        self.profile_data = ProfileData()
+
+    def estimate(self):
+        global _active_profile
+        saved = _active_profile           # Save existing (may be None)
+        _active_profile = self.profile_data
+        try:
+            return self.x.estimate()
+        finally:
+            _active_profile = saved       # Restore previous
+
+    def variance(self):
+        return Profile(self.x.variance())  # Wrap variance too
+
+    def __str__(self):
+        return f"Profile({self.x})"
+
+    # Convenience methods that delegate to profile_data
+    def summary(self) -> dict:
+        return self.profile_data.summary()
+
+
 # where f is a (probabilistic, otherwise not interesting) program that returns a float
 # could optionally take a list of samples to avoid running the program more than necessary
 class Sampler(IntractableReal):
+    _uid_counter = 0
+
+    # TODO: review
     def __init__(self, f: Callable[[], float], known_mean: float = None, known_variance: float = None):
        self.f = f #if ((known_mean is None) or (known_variance is None)) else None # only track lambda if we need to
        self.known_mean = known_mean
        self.known_variance = known_variance
+       self.uid = Sampler._uid_counter
+       Sampler._uid_counter += 1
     
+    # TODO: review
     def estimate(self):
         if self.known_mean is not None:
             return self.known_mean
+        elif _active_profile is not None:
+            start = time.perf_counter()
+            result = self.f()
+            elapsed = time.perf_counter() - start
+            key = (id(self.f), self.uid)
+            if key in _active_profile.data:
+                _active_profile.data[key][0] += 1
+                _active_profile.data[key][1] += elapsed
+            else:
+                _active_profile.data[key] = [1, elapsed]
+            return result
         else:
             return self.f()
+
+        # prev impl
+        # if self.known_mean is not None:
+        #     return self.known_mean
+        # else:
+        #     return self.f()
     
     def variance(self):
         if self.known_variance is not None:

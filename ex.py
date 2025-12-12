@@ -7,14 +7,13 @@ from src import *
 
 # print(t / trials)
 
-# prog = Dist(Mul(Normal(1,1), Normal(1, 1)), 1000)
-# prog = Dist(Mul(Normal(1, False, 1, False), Normal(1, False, 1, False)), 1000)
-# prog = Dist(Normal(1, True, 1, True), 1000)
-# known = False
-# prog = Dist(Mul(Dist(Uniform(0, True, 1, known), 1), Normal(1, True, 1, known)), 1000)
+def coin(p: float) -> float:
+    return 1 if random.random() < p else 0
 
-prog = Dist(Log(Exp(Normal(1, False, 1, False))), 10000)
+prog = Sampler(lambda: coin(0.5))
 
+prog = Profile(prog)
 print(prog)
 print("Mean: ", prog.estimate())
 print("Variance: ", prog.variance().estimate())
+print("Summary: ", prog.summary())
