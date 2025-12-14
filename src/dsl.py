@@ -321,19 +321,6 @@ class Log(IntractableReal):
 
 """ Programming Constructs """
 
-
-""" 
- # estimates mean, var of cond. Must eval to bool, which means mu bound 0-1 and thus valid as p for future flip
-if_expr, else_expr \in IntractableReal
-
-p(if_expr) + (1-p)(else_expr) => EV(full_stmt)
-
-# if stmt 
-cond = Sampler(lamda: cond_fn)
-Add(Mul(if_expr, cond), Mul(else_expr, Sub(1, cond))) => EV 
-
- """
-
 class If(IntractableReal):
     def __init__(self, cond: IntractableReal, if_expr: IntractableReal, else_expr: IntractableReal):
         self.cond = cond
