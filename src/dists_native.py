@@ -6,7 +6,8 @@ import random
 # the idea is that we don't use builtin distributions
 
 def BernoulliNative(p: float, p_known: bool = False) -> IntractableReal:
-    return Sampler(lambda: 1 if random.random() < p else 0, known_mean=p if p_known else None, known_variance=p*(1-p) if p_known else None)
+    callable = NamedCallable(lambda: 1 if random.random() < p else 0, f"BernoulliNative({p})")
+    return Sampler(callable, known_mean=p if p_known else None, known_variance=p*(1-p) if p_known else None)
 
 def BinomialNative(n: int, p: float) -> IntractableReal:
     terms = [BernoulliNative(p) for _ in range(n)]

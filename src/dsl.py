@@ -122,6 +122,21 @@ class Profile(IntractableReal):
 
 # where f is a (probabilistic, otherwise not interesting) program that returns a float
 # could optionally take a list of samples to avoid running the program more than necessary
+
+# Optionally, we can name lambdas for cleaner repr.
+class NamedCallable:
+    """Wraps a callable with a display name for cleaner repr."""
+    def __init__(self, fn: Callable, name: str):
+        self.fn = fn
+        self.name = name
+    
+    def __call__(self, *args, **kwargs):
+        return self.fn(*args, **kwargs)
+    
+    def __repr__(self):
+        return self.name
+
+
 class Sampler(IntractableReal):
     _uid_counter = 0
 
@@ -354,3 +369,6 @@ class If(IntractableReal):
         
         # Total variance
         return Add(expected_var, var_of_expected)
+    
+    def __str__(self) -> str:
+        return f"If({self.cond}, {self.if_expr}, {self.else_expr})"
