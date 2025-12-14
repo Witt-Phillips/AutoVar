@@ -11,9 +11,10 @@ def coin(p: float) -> float:
     return 1 if random.random() < p else 0
 
 prog = Sampler(lambda: coin(0.5))
+prog = Profile(Dist(prog, 1000))
+var = prog.variance().estimate()
+est = prog.estimate()
 
-prog = Profile(prog)
-print(prog)
-print("Mean: ", prog.estimate())
-print("Variance: ", prog.variance().estimate())
-print("Summary: ", prog.summary())
+print("Estimate: ", est)
+# print("Variance: ", var)
+print("Summary:\n", prog.summary())

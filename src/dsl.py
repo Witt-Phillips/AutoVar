@@ -50,7 +50,7 @@ class Dist(IntractableReal):
         return f"Dist({self.dist}, {self.n})"
 
 """ Profiler """
-# TODO: review
+
 class ProfileData:
     """Holds profiling data for a single Profile context."""
     def __init__(self):
@@ -64,19 +64,29 @@ class ProfileData:
         else:
             self.data[key] = [1, elapsed]
     
+    def merge(self, other: 'ProfileData'):
+        """Merge another ProfileData's samples into this one."""
+        for key, (n, total_time) in other.data.items():
+            if key in self.data:
+                self.data[key][0] += n
+                self.data[key][1] += total_time
+            else:
+                self.data[key] = [n, total_time]
+    
     def summary(self) -> dict:
         """Returns {(lambda_id, sampler_uid): (n, avg_time)}"""
-        return {k: (v[0], v[1] / v[0] if v[0] > 0 else 0) 
-                for k, v in self.data.items()}
+        return ''.join(
+            f"{k}: ({v[0]}, {v[1] / v[0] if v[0] > 0 else 0})\n"
+            for k, v in self.data.items()
+        )
 
-
-# TODO: review
 class Profile(IntractableReal):
     """Wraps an IntractableReal and profiles all sampling during estimate()."""
     def __init__(self, x: IntractableReal):
         self.x = x
         self.profile_data = ProfileData()
-
+        self._parent_profile = None  # Set by variance() for merging
+    
     def estimate(self):
         global _active_profile
         saved = _active_profile           # Save existing (may be None)
@@ -84,18 +94,31 @@ class Profile(IntractableReal):
         try:
             return self.x.estimate()
         finally:
-            _active_profile = saved       # Restore previous
-
+            _active_profile = saved
+            if self._parent_profile is not None:
+                self._parent_profile.merge(self.profile_data)
+    
     def variance(self):
-        return Profile(self.x.variance())  # Wrap variance too
-
+        global _active_profile
+        # Enable profiling BEFORE calling x.variance() because some variance
+        # implementations (like Dist.variance()) are eager and do sampling immediately.
+        saved = _active_profile
+        _active_profile = self.profile_data
+        try:
+            inner_variance = self.x.variance()
+        finally:
+            _active_profile = saved
+        
+        result = Profile(inner_variance)
+        result._parent_profile = self.profile_data
+        return result
+    
     def __str__(self):
         return f"Profile({self.x})"
-
+    
     # Convenience methods that delegate to profile_data
     def summary(self) -> dict:
         return self.profile_data.summary()
-
 
 # where f is a (probabilistic, otherwise not interesting) program that returns a float
 # could optionally take a list of samples to avoid running the program more than necessary
@@ -110,7 +133,6 @@ class Sampler(IntractableReal):
        self.uid = Sampler._uid_counter
        Sampler._uid_counter += 1
     
-    # TODO: review
     def estimate(self):
         if self.known_mean is not None:
             return self.known_mean
@@ -133,7 +155,7 @@ class Sampler(IntractableReal):
         #     return self.known_mean
         # else:
         #     return self.f()
-    
+    # TODO: review
     def variance(self):
         if self.known_variance is not None:
             return Exact(self.known_variance)
@@ -143,11 +165,19 @@ class Sampler(IntractableReal):
             # no! We should just define a 'variance sampler' and use its estimate.
 
             if self.known_mean is not None:
-                # single sample comparison to known mean
+                # single sample comparison to known mean. Cannot use estimate() because
+                # it will return the known mean and diff will be 0.
                 return Sampler(lambda: (self.f() - self.known_mean)**2)
+                
             else:
                 # two sample comparison given no known mean
-                return Sampler(lambda: 0.5 * (self.f() - self.f())**2)
+                # return Sampler(lambda: 0.5 * (self.f() - self.f())**2)
+                # don't like this behavior.... what if we just just did this calculation
+                # ourselves to avoid another lambda call?
+                e1 = self.estimate()
+                e2 = self.estimate()
+                return Exact((e1 - e2)**2 / 2)
+                #return Sampler(lambda: 0.5 * (self.estimate() - self.estimate())**2)
     
     def __str__(self) -> str:
         return f"Sampler({self.f})"
