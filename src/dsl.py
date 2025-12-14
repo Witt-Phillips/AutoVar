@@ -318,3 +318,52 @@ class Log(IntractableReal):
     
     def __str__(self) -> str:
         return f"Log({self.x})"
+
+""" Programming Constructs """
+
+
+""" 
+ # estimates mean, var of cond. Must eval to bool, which means mu bound 0-1 and thus valid as p for future flip
+if_expr, else_expr \in IntractableReal
+
+p(if_expr) + (1-p)(else_expr) => EV(full_stmt)
+
+# if stmt 
+cond = Sampler(lamda: cond_fn)
+Add(Mul(if_expr, cond), Mul(else_expr, Sub(1, cond))) => EV 
+
+ """
+
+class If(IntractableReal):
+    def __init__(self, cond: IntractableReal, if_expr: IntractableReal, else_expr: IntractableReal):
+        self.cond = cond
+        self.if_expr = if_expr
+        self.else_expr = else_expr
+        self._impl = Add(
+            Mul(self.if_expr, self.cond),
+            Mul(self.else_expr, Sub(Exact(1), self.cond))
+        )
+    
+    def estimate(self):
+        return self._impl.estimate()
+
+    # todo: review
+    def variance(self):
+        # generally, we assume independence, but we can't here. Use Law of Total Variance.
+        p = self.cond
+        one_minus_p = Sub(Exact(1), p)
+        
+        # Var given independence assumed:
+        # E[Var(X|C)] = p·Var(if) + (1-p)·Var(else)
+        expected_var = Add(
+            Mul(p, self.if_expr.variance()),
+            Mul(one_minus_p, self.else_expr.variance())
+        )
+        
+        # Compute covariance term
+        # Var(E[X|C]) = p·(1-p)·(μ_if - μ_else)²
+        diff = Sub(self.if_expr, self.else_expr)
+        var_of_expected = Mul(Mul(p, one_minus_p), Square(diff))
+        
+        # Total variance
+        return Add(expected_var, var_of_expected)
