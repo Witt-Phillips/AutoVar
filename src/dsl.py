@@ -77,7 +77,7 @@ class ProfileData:
         return ''.join(
             f"{k}: ({v[0]}, {v[1] / v[0] if v[0] > 0 else 0})\n"
             for k, v in self.data.items()
-        )
+        ).lstrip()
 
 class Profile(IntractableReal):
     """Wraps an IntractableReal and profiles all sampling during estimate()."""
