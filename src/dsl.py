@@ -54,16 +54,15 @@ class Dist(IntractableReal):
 class ProfileData:
     """Holds profiling data for a single Profile context."""
     def __init__(self):
-        self.data = {}  # (lambda_id, sampler_uid) -> [n, total_time]
-    
-    def record(self, lambda_id: int, sampler_uid: int, elapsed: float):
-        key = (lambda_id, sampler_uid)
+        self.data = {}  # (lambda_name, sampler_uid) -> [n, total_time]
+
+    def record(self, lambda_name: str, sampler_uid: int, elapsed: float):
+        key = (lambda_name, sampler_uid)
         if key in self.data:
             self.data[key][0] += 1
             self.data[key][1] += elapsed
         else:
             self.data[key] = [1, elapsed]
-    
     def merge(self, other: 'ProfileData'):
         """Merge another ProfileData's samples into this one."""
         for key, (n, total_time) in other.data.items():
@@ -74,7 +73,7 @@ class ProfileData:
                 self.data[key] = [n, total_time]
     
     def summary(self) -> dict:
-        """Returns {(lambda_id, sampler_uid): (n, avg_time)}"""
+        """Returns {(lambda_name, sampler_uid): (n, avg_time)}"""
         return ''.join(
             f"{k}: ({v[0]}, {v[1] / v[0] if v[0] > 0 else 0})\n"
             for k, v in self.data.items()
@@ -97,6 +96,7 @@ class Profile(IntractableReal):
             _active_profile = saved
             if self._parent_profile is not None:
                 self._parent_profile.merge(self.profile_data)
+                self.profile_data.data.clear()  # Avoid double-counting on next call
     
     def variance(self):
         global _active_profile
@@ -155,7 +155,8 @@ class Sampler(IntractableReal):
             start = time.perf_counter()
             result = self.f()
             elapsed = time.perf_counter() - start
-            key = (id(self.f), self.uid)
+            name = self.f.name if isinstance(self.f, NamedCallable) else repr(self.f)
+            key = (name, self.uid)
             if key in _active_profile.data:
                 _active_profile.data[key][0] += 1
                 _active_profile.data[key][1] += elapsed
@@ -341,6 +342,9 @@ class If(IntractableReal):
         self.cond = cond
         self.if_expr = if_expr
         self.else_expr = else_expr
+
+        # TODO: this evaluates the condition twice. To maintain independence, we avoid caching the result.
+        # Note that If statements will independently
         self._impl = Add(
             Mul(self.if_expr, self.cond),
             Mul(self.else_expr, Sub(Exact(1), self.cond))
