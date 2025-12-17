@@ -227,14 +227,14 @@ class Sampler(IntractableReal):
             if self.known_mean is not None:
                 # single sample comparison to known mean. Cannot use estimate() because
                 # it will return the known mean and diff will be 0.
-                return Sampler(lambda: (self.f() - self.known_mean)**2)
+                return Sampler(NamedCallable(lambda: (self.f() - self.known_mean)**2, f"{self.f}_variance"))
                 
             else:
                 # two sample comparison given no known mean
                 # return Sampler(lambda: 0.5 * (self.f() - self.f())**2)
                 # don't like this behavior.... what if we just just did this calculation
                 # ourselves to avoid another lambda call?
-                return Sampler(lambda: 0.5 * (self.f() - self.f())**2)
+                return Sampler(NamedCallable(lambda: 0.5 * (self.f() - self.f())**2, f"{self.f}_variance"))
                 # e1 = self.estimate(env)
                 # e2 = self.estimate(env)
                 # return Exact((e1 - e2)**2 / 2)
