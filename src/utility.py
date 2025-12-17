@@ -191,3 +191,26 @@ def summarize(node) -> dict:
     
     walk(node)
     return counts
+
+def check_deterministic(node) -> bool:
+    from . import dsl
+
+    if isinstance(node, (dsl.Exact, dsl.Env)):
+        return True
+    
+    if isinstance(node, (dsl.Sampler, dsl.If)):
+        return False
+    
+    if isinstance(node, dsl.Dist):
+        return check_deterministic(node.dist)
+    
+    if isinstance(node, (dsl.Profile, dsl.Inv, dsl.Exp, dsl.Log)):
+        return check_deterministic(node.x)
+    
+    if isinstance(node, (dsl.Add, dsl.Mul)):
+        return check_deterministic(node.x) and check_deterministic(node.y)
+    
+    if hasattr(node, '_impl'):
+        return check_deterministic(node._impl)
+
+    raise ValueError(f"Unknown node type {node}")

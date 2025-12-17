@@ -340,11 +340,12 @@ class Mul(IntractableReal):
     def __str__(self) -> str:
         return f"Mul({self.x}, {self.y})"
 
-# we use the delta method to approximate 1/X
-# Var(1/X) ≈ Var(X) / μ_X^4
-
+# Only allowed with deterministic values
 class Inv(IntractableReal):
     def __init__(self, x: IntractableReal):
+        from . import check_deterministic
+        if not check_deterministic(x):
+            raise ValueError(f"Non-deterministic node passed to Inv, which only accepts deterministic values. Node was {x}")
         self.x = x
     
     def estimate(self, env: Dict[str, float] = {}):
@@ -355,15 +356,12 @@ class Inv(IntractableReal):
         return 1 / val
     
     def variance(self, env: Dict[str, float] = {}, adaptive : bool = False):
-        vx = self.x.variance(env, adaptive=adaptive)
-        ux4 = Mul(Mul(self.x, self.x), Mul(self.x, self.x))  # μ^4
-        return Mul(vx, Inv(ux4))
+        return Exact(0)
     
     def estimate_with_grad(self, env: Dict[str, float] = {}) -> tuple[float, Dict[str, float]]:
         est, grad = self.x.estimate_with_grad(env)
 
         if abs(est) < 1e-10:
-            from . import pretty
             raise ValueError(f"Inverting near-zero sample. Returned by {self.x}, {env}")
         
         return 1 / est, {env_var : -grad[env_var]/(est**2) for env_var in grad}
@@ -410,9 +408,12 @@ class Square(IntractableReal):
     def __str__(self) -> str:
         return f"{self._impl}"
 
-#e^x, estiamted using the delta method
+# Only allowed with deterministic values
 class Exp(IntractableReal):
     def __init__(self, x: IntractableReal):
+        from . import check_deterministic
+        if not check_deterministic(x):
+            raise ValueError(f"Non-deterministic node passed to Exp, which only accepts deterministic values. Node was {x}")
         self.x = x
     
     def estimate(self, env: Dict[str, float] = {}):
@@ -422,7 +423,7 @@ class Exp(IntractableReal):
     # TODO: Wanted to do the delta method, but it was giving me a different answer than the sampler.
     # The problem is that this loses all context. We don't benefit from the fact that we know the variance of the original distribution.
     def variance(self, env: Dict[str, float] = {}, adaptive : bool = False):
-        return Sampler(lambda: 0.5 * (exp(self.x.estimate(env)) - exp(self.x.estimate(env)))**2)
+        return Exact(0)
     
     def estimate_with_grad(self, env: Dict[str, float] = {}) -> tuple[float, Dict[str, float]]:
         est, grad = self.x.estimate_with_grad(env)
@@ -431,12 +432,19 @@ class Exp(IntractableReal):
     def __str__(self) -> str:
         return f"Exp({self.x})"
 
+# Only allowed with deterministic values
 class Log(IntractableReal):
     def __init__(self, x: IntractableReal):
+        from . import check_deterministic
+        if not check_deterministic(x):
+            raise ValueError(f"Non-deterministic node passed to Inv, which only accepts deterministic values. Node was {x}")
         self.x = x
     
     def estimate(self, env: Dict[str, float] = {}):
         return log(self.x.estimate(env))
+    
+    def variance(self, env: Dict[str, float] = {}, adaptive : bool = False):
+        return Exact(0)
     
     def estimate_with_grad(self, env: Dict[str, float] = {}) -> tuple[float, Dict[str, float]]:
         est, grad = self.x.estimate_with_grad(env)
@@ -444,7 +452,7 @@ class Log(IntractableReal):
         if abs(est) < 1e-10:
             raise ValueError("Inverting near-zero sample")
 
-        return exp(est), {env_var : grad[env_var] / est for env_var in grad}
+        return log(est), {env_var : grad[env_var] / est for env_var in grad}
     
     def __str__(self) -> str:
         return f"Log({self.x})"
