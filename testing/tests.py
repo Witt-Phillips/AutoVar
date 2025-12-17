@@ -1,5 +1,10 @@
 import unittest
-from ..src import *
+
+import sys
+import os
+sys.path.insert(0, os.path.abspath('..'))
+from src import *
+
 
 class TestDistributions(unittest.TestCase):
     """Unit tests for distribution estimation with large n."""
@@ -40,10 +45,10 @@ class TestDistributions(unittest.TestCase):
         
         # Create Normal with known parameters
         normal = Normal(mu, False, sigma, False)
-        prog = Dist(normal, n)
+        prog = normal
         
         # Estimate variance
-        estimated_variance = prog.variance().estimate()
+        estimated_variance = Dist(prog.variance(), n).estimate()
         
         # Analytical truth: variance of Normal(mu, sigma) is sigma^2
         analytical_variance = sigma ** 2
@@ -96,10 +101,10 @@ class TestDistributions(unittest.TestCase):
         
         # Create Uniform with known parameters
         uniform = Uniform(a, False, b, False)
-        prog = Dist(uniform, n)
+        prog = uniform
         
         # Estimate variance
-        estimated_variance = prog.variance().estimate()
+        estimated_variance = Dist(prog.variance(), n).estimate()
         
         # Analytical truth: variance of Uniform(a, b) is (b - a)^2 / 12
         analytical_variance = ((b - a) ** 2) / 12
@@ -122,14 +127,14 @@ class TestDistributions(unittest.TestCase):
         
         # Create Normal with known mean and variance
         normal = Normal(mu, True, sigma, True)
-        prog = Dist(normal, n)
+        prog = normal
         
         # Estimate mean (should be exact since it's known)
-        estimated_mean = prog.estimate()
+        estimated_mean = Dist(prog, n).estimate()
         analytical_mean = mu
         
         # Estimate variance (should be exact since it's known)
-        estimated_variance = prog.variance().estimate()
+        estimated_variance = Dist(prog.variance(), n).estimate()
         analytical_variance = sigma ** 2
         
         # With known parameters, these should be exact
@@ -144,14 +149,14 @@ class TestDistributions(unittest.TestCase):
         
         # Create Uniform with known parameters
         uniform = Uniform(a, True, b, True)
-        prog = Dist(uniform, n)
+        prog = uniform
         
         # Estimate mean (should be exact)
-        estimated_mean = prog.estimate()
+        estimated_mean = Dist(prog, n).estimate()
         analytical_mean = (a + b) / 2
         
         # Estimate variance (should be exact)
-        estimated_variance = prog.variance().estimate()
+        estimated_variance = Dist(prog.variance(), n).estimate()
         analytical_variance = ((b - a) ** 2) / 12
         
         # With known parameters, these should be exact
