@@ -145,6 +145,9 @@ class Profile(IntractableReal):
         result._parent_profile = self.profile_data
         return result
     
+    def clear(self):
+        self.profile_data.data.clear()
+    
     def estimate_with_grad(self, env: Dict[str, float] = {}) -> tuple[float, Dict[str, float]]:
         global _active_profile
         saved = _active_profile           # Save existing (may be None)
