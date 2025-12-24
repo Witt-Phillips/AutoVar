@@ -58,9 +58,11 @@ def minimize_variance(
     seed: int = 0,
 ) -> Dict[str, float]:
     """
-    Optimize bias parameters to minimize variance-of-variance.
+    Optimize bias parameters to minimize variance of the mean estimator.
     
     This is the JAX-accelerated version of variance minimization.
+    We minimize Var(μ^), which causes high-variance terms to get more samples
+    (since they contribute more to the mean's uncertainty).
     
     Args:
         program: The original program (not the variance program)
@@ -74,18 +76,18 @@ def minimize_variance(
     Returns:
         Dict mapping bias variable names to optimized values
     """
-    # Transform to variance-of-variance program
+    # Transform to variance program with adaptive biasing
+    # We minimize Var(μ^) = Var(program), not Var(Var^)
     variance_prog = program.variance(adaptive=True)
-    var_var_prog = variance_prog.variance()
     
     # Get env mapping and compile
-    env_mapping = get_env_mapping(var_var_prog)
+    env_mapping = get_env_mapping(variance_prog)
     
     if not env_mapping:
         # No bias variables to optimize
         return {}
     
-    jax_fn = to_jax(var_var_prog, env_mapping)
+    jax_fn = to_jax(variance_prog, env_mapping)
     
     # Identify bias variables vs fixed variables
     bias_vars = [k for k in env_mapping if k.startswith('_bias_')]

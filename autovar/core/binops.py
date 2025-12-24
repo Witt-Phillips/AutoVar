@@ -40,6 +40,16 @@ class Add(IntractableReal):
                 self.y.variance(env, adaptive=adaptive)
             )
     
+    def to_jax(self, env_mapping):
+        import jax.random as jr
+        left_fn = self.x.to_jax(env_mapping)
+        right_fn = self.y.to_jax(env_mapping)
+        
+        def jax_add(env_array, key):
+            k1, k2 = jr.split(key)
+            return left_fn(env_array, k1) + right_fn(env_array, k2)
+        return jax_add
+    
     def __str__(self) -> str:
         return f"Add({self.x}, {self.y})"
 
@@ -76,6 +86,16 @@ class Mul(IntractableReal):
                 Add(Mul(vx, uy2), Mul(vy, ux2))
             )
     
+    def to_jax(self, env_mapping):
+        import jax.random as jr
+        left_fn = self.x.to_jax(env_mapping)
+        right_fn = self.y.to_jax(env_mapping)
+        
+        def jax_mul(env_array, key):
+            k1, k2 = jr.split(key)
+            return left_fn(env_array, k1) * right_fn(env_array, k2)
+        return jax_mul
+    
     def __str__(self) -> str:
         return f"Mul({self.x}, {self.y})"
 
@@ -105,6 +125,10 @@ class Inv(IntractableReal):
     def variance(self, env: Dict[str, float] = {}, adaptive: bool = False) -> Exact:
         return Exact(0)
     
+    def to_jax(self, env_mapping):
+        inner_fn = self.x.to_jax(env_mapping)
+        return lambda env_array, key: 1.0 / inner_fn(env_array, key)
+    
     def __str__(self) -> str:
         return f"Inv({self.x})"
 
@@ -120,6 +144,9 @@ class Sub(IntractableReal):
     
     def variance(self, env: Dict[str, float] = {}, adaptive: bool = False) -> IntractableReal:
         return self._impl.variance(env, adaptive=adaptive)
+    
+    def to_jax(self, env_mapping):
+        return self._impl.to_jax(env_mapping)
     
     def __str__(self) -> str:
         return f"Sub({self._impl.x}, {self._impl.y.y})"
@@ -139,6 +166,9 @@ class Div(IntractableReal):
     def variance(self, env: Dict[str, float] = {}, adaptive: bool = False) -> IntractableReal:
         return self._impl.variance(env, adaptive=adaptive)
     
+    def to_jax(self, env_mapping):
+        return self._impl.to_jax(env_mapping)
+    
     def __str__(self) -> str:
         return f"Div({self.x}, {self.y})"
 
@@ -155,6 +185,9 @@ class Square(IntractableReal):
     
     def variance(self, env: Dict[str, float] = {}, adaptive: bool = False) -> IntractableReal:
         return self._impl.variance(env, adaptive=adaptive)
+    
+    def to_jax(self, env_mapping):
+        return self._impl.to_jax(env_mapping)
     
     def __str__(self) -> str:
         return f"Square({self.x})"

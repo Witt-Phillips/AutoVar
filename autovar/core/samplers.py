@@ -106,6 +106,21 @@ class Sampler(IntractableReal):
                     NamedCallable(lambda: 0.5 * (self.f() - self.f())**2, f"{self.f}.variance")
                 )
 
+    def to_jax(self, env_mapping):
+        import jax
+        import jax.numpy as jnp
+        f = self.f
+        known_mean = self.known_mean
+        
+        def jax_sampler(env_array, key):
+            if known_mean is not None:
+                return jnp.float32(known_mean)
+            return jax.pure_callback(
+                lambda: jnp.float32(f()),
+                jax.ShapeDtypeStruct((), jnp.float32),
+            )
+        return jax_sampler
+    
     def __str__(self) -> str:
         return f"Sampler({self.f})"
 
@@ -148,6 +163,10 @@ class Profile(IntractableReal):
     
     def summary(self) -> str:
         return self.profile_data.summary()
+    
+    def to_jax(self, env_mapping):
+        # Profile is a no-op for JAX; just delegate to inner
+        return self.x.to_jax(env_mapping)
     
     def __str__(self) -> str:
         return f"Profile({self.x})"

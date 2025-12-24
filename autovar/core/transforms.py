@@ -28,6 +28,19 @@ class Dist(IntractableReal):
         inner_var = Dist(self.dist.variance(env, adaptive=adaptive), self.n)
         return Div(inner_var, Exact(self.n))
     
+    def to_jax(self, env_mapping):
+        import jax
+        import jax.numpy as jnp
+        import jax.random as jr
+        inner_fn = self.dist.to_jax(env_mapping)
+        n = self.n
+        
+        def jax_dist(env_array, key):
+            keys = jr.split(key, n)
+            samples = jax.vmap(lambda k: inner_fn(env_array, k))(keys)
+            return jnp.mean(samples)
+        return jax_dist
+    
     def __str__(self) -> str:
         return f"Dist({self.dist}, {self.n})"
 

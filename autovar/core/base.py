@@ -26,6 +26,10 @@ class IntractableReal:
         """
         raise NotImplementedError
     
+    def to_jax(self, env_mapping: Dict[str, int]) -> Callable:
+        """Compile this node to a JAX function (env_array, key) -> float."""
+        raise NotImplementedError
+    
     def __str__(self) -> str:
         raise NotImplementedError
 
@@ -41,6 +45,11 @@ class Exact(IntractableReal):
     
     def variance(self, env: Dict[str, float] = {}, adaptive: bool = False) -> 'Exact':
         return Exact(0)
+    
+    def to_jax(self, env_mapping: Dict[str, int]) -> Callable:
+        import jax.numpy as jnp
+        val = self.val
+        return lambda env_array, key: jnp.float32(val)
     
     def __str__(self) -> str:
         return f"Exact({self.val})"
@@ -64,6 +73,10 @@ class Env(IntractableReal):
     
     def variance(self, env: Dict[str, float] = {}, adaptive: bool = False) -> Exact:
         return Exact(0)
+    
+    def to_jax(self, env_mapping: Dict[str, int]) -> Callable:
+        idx = env_mapping[self.name]
+        return lambda env_array, key: env_array[idx]
     
     def __str__(self) -> str:
         return f"Env({self.name})"

@@ -48,6 +48,19 @@ class If(IntractableReal):
         # Total variance
         return Add(expected_var, var_of_expected)
     
+    def to_jax(self, env_mapping):
+        import jax.random as jr
+        cond_fn = self.cond.to_jax(env_mapping)
+        then_fn = self.if_expr.to_jax(env_mapping)
+        else_fn = self.else_expr.to_jax(env_mapping)
+        
+        def jax_if(env_array, key):
+            k1, k2, k3 = jr.split(key, 3)
+            p = cond_fn(env_array, k1)
+            # Soft version: always compute both, weight by probability
+            return p * then_fn(env_array, k2) + (1 - p) * else_fn(env_array, k3)
+        return jax_if
+    
     def __str__(self) -> str:
         return f"If({self.cond}, {self.if_expr}, {self.else_expr})"
 

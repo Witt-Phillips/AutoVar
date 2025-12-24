@@ -29,6 +29,11 @@ class Exp(IntractableReal):
         # TODO: Could use delta method: Var(e^X) ≈ e^(2μ) · Var(X)
         return Exact(0)
     
+    def to_jax(self, env_mapping):
+        import jax.numpy as jnp
+        inner_fn = self.x.to_jax(env_mapping)
+        return lambda env_array, key: jnp.exp(inner_fn(env_array, key))
+    
     def __str__(self) -> str:
         return f"Exp({self.x})"
 
@@ -54,6 +59,11 @@ class Log(IntractableReal):
     
     def variance(self, env: Dict[str, float] = {}, adaptive: bool = False) -> Exact:
         return Exact(0)
+    
+    def to_jax(self, env_mapping):
+        import jax.numpy as jnp
+        inner_fn = self.x.to_jax(env_mapping)
+        return lambda env_array, key: jnp.log(inner_fn(env_array, key))
     
     def __str__(self) -> str:
         return f"Log({self.x})"
