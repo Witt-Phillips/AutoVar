@@ -1,0 +1,12 @@
+# Core dependencies
+numpy>=1.20.0
+
+# JAX (for accelerated computation)
+jax>=0.4.0
+jaxlib>=0.4.0
+
+# Development dependencies
+jupyter
+matplotlib
+pytest
+

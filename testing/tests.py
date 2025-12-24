@@ -3,7 +3,7 @@ import unittest
 import sys
 import os
 sys.path.insert(0, os.path.abspath('..'))
-from src import *
+from autovar import *
 
 
 class TestDistributions(unittest.TestCase):
